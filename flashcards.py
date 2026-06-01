@@ -27,13 +27,44 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "gemma3"  # change to whatever you have pulled, e.g. "mistral", "llama3.1"
 CACHE_FILE = Path("meanings_cache.json")
 
+SYSTEM_PROMPT = (
+    "You are a French-to-English dictionary. "
+    "For each French word the user sends, respond with ONLY the English translation. "
+    "Rules: "
+    "1-3 words maximum. "
+    "If multiple common meanings, separate with commas. "
+    "No markdown, no quotes, no punctuation at the end, no explanations, no full sentences. "
+    "Examples: "
+    "Input: chat  Output: cat. "
+    "Input: pomme  Output: apple. "
+    "Input: voler  Output: to fly, to steal."
+)
+
+print(f"Using model: {OLLAMA_MODEL}")
 
 # ---------- Ollama worker (runs in a background thread so UI stays responsive) ----------
 
+OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_MODEL = "gemma3"
+
+SYSTEM_PROMPT = (
+    "You are a French-to-English dictionary. "
+    "For each French word the user sends, respond with ONLY the English translation. "
+    "Rules: "
+    "1-3 words maximum. "
+    "If multiple common meanings, separate with commas. "
+    "No markdown, no quotes, no punctuation at the end, no explanations, no full sentences. "
+    "Examples: "
+    "Input: chat  Output: cat. "
+    "Input: pomme  Output: apple. "
+    "Input: voler  Output: to fly, to steal."
+)
+
+
 class OllamaWorker(QThread):
     """Fetches meanings for a list of French words from a local Ollama server."""
-    progress = pyqtSignal(int, int, str)        # current, total, current word
-    word_done = pyqtSignal(str, str)            # french word, meaning
+    progress = pyqtSignal(int, int, str)
+    word_done = pyqtSignal(str, str)
     finished_all = pyqtSignal()
     error = pyqtSignal(str)
 
@@ -53,33 +84,48 @@ class OllamaWorker(QThread):
                 break
             self.progress.emit(i, total, word)
             try:
-                prompt = (
-                    f"Give the English meaning of the French word '{word}'. "
-                    f"Respond with ONLY the English translation, no extra explanation, "
-                    f"no quotes, no French. If the word has multiple common meanings, "
-                    f"give the 2 or 3 most common, separated by commas."
-                )
                 resp = requests.post(
                     OLLAMA_URL,
-                    json={"model": self.model, "prompt": prompt, "stream": False},
+                    json={
+                        "model": self.model,
+                        "system": SYSTEM_PROMPT,
+                        "prompt": word,
+                        "stream": False,
+                        "keep_alive": "10m",   # keep model + system prompt cached between calls
+                        "options": {
+                            "temperature": 0.1,
+                            "num_predict": 30,  # cap output length, speeds things up
+                        },
+                    },
                     timeout=60,
                 )
                 resp.raise_for_status()
                 meaning = resp.json().get("response", "").strip()
-                # Clean up common LLM artifacts
-                meaning = meaning.strip(' "\'.\n')
+                # Light cleanup in case the model still adds markdown or trailing punctuation
+                meaning = meaning.replace("**", "").replace("*", "")
+                meaning = meaning.split("\n")[0].strip(" \"'.,;:\n")
                 self.word_done.emit(word, meaning or "(no answer)")
             except requests.exceptions.ConnectionError:
                 self.error.emit(
                     "Could not reach Ollama at http://localhost:11434.\n"
-                    "Make sure Ollama is running ('ollama serve') and the model is pulled "
-                    f"('ollama pull {self.model}')."
+                    "Run 'ollama serve' to start it."
+                )
+                return
+            except requests.exceptions.HTTPError as e:
+                body = ""
+                try:
+                    body = e.response.text
+                except Exception:
+                    pass
+                self.error.emit(
+                    f"Ollama returned {e.response.status_code} for model '{self.model}'.\n\n"
+                    f"Response: {body}\n\n"
+                    f"Run `ollama list` and make sure OLLAMA_MODEL matches an installed model."
                 )
                 return
             except Exception as e:
                 self.word_done.emit(word, f"(error: {e})")
         self.finished_all.emit()
-
 
 # ---------- Main window ----------
 
