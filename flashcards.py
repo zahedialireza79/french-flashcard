@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3.2"  # change to whatever you have pulled, e.g. "mistral", "llama3.1"
+OLLAMA_MODEL = "gemma3"  # change to whatever you have pulled, e.g. "mistral", "llama3.1"
 CACHE_FILE = Path("meanings_cache.json")
 
 
