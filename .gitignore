@@ -1,0 +1,44 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Distribution / packaging ---
+build/
+dist/
+*.egg-info/
+*.egg
+
+# --- IDEs / editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Testing / coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# --- App-specific ---
+# Cached meanings fetched from Ollama (regenerated automatically)
+meanings_cache.json
+
+# Personal vocabulary files — comment these out if you want to commit a sample
+*.xlsx
+*.xls
+!sample_words.xlsx
+
+# Logs
+*.log
